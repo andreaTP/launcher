@@ -144,13 +144,17 @@ final class Update(config: UpdateConfiguration) {
           System.err.println("Getting " + app.groupID + " " + resolvedName + " " + app.getVersion + " " + reason + " (this may take some time)...")
           ddesc.getDependencyId
       }
+      println("fin qui ok ...")
       update(moduleID, target, dep)
     }
   /** Runs the resolve and retrieve for the given moduleID, which has had its dependencies added already. */
   private def update(moduleID: DefaultModuleDescriptor, target: UpdateTarget, dep: ModuleId): UpdateResult =
     {
+      println("1")
       val eventManager = new EventManager
+      println("2")
       val (autoScalaVersion, depVersion) = resolve(eventManager, moduleID, dep)
+      println("3")
       // Fix up target.id with the depVersion that we know for sure is resolved (not dynamic) -- this way, `retrieve`
       // will put them in the right version directory.
       val target1 = (depVersion, target) match {
@@ -158,8 +162,11 @@ final class Update(config: UpdateConfiguration) {
           import u._; new UpdateApp(id.copy(version = new Explicit(dv)), classifiers, tpe)
         case _ => target
       }
+      println("4")
       setScalaVariable(settings, autoScalaVersion)
+      println("5")
       retrieve(eventManager, moduleID, target1, autoScalaVersion)
+      println("6")
       new UpdateResult(true, autoScalaVersion, depVersion)
     }
   private def createID(organization: String, name: String, revision: String) =
@@ -195,12 +202,17 @@ final class Update(config: UpdateConfiguration) {
   // Returns the version of the scala library, as well as `dep` (a dependency of `module`) after it's been resolved
   private def resolve(eventManager: EventManager, module: ModuleDescriptor, dep: ModuleId): (Option[String], Option[String]) =
     {
+      println("resolve 1")
       val resolveOptions = new ResolveOptions
       // this reduces the substantial logging done by Ivy, including the progress dots when downloading artifacts
       resolveOptions.setLog(LogOptions.LOG_DOWNLOAD_ONLY)
       resolveOptions.setCheckIfChanged(false)
+      println("resolve 2")
       val resolveEngine = new ParallelResolveEngine(settings, eventManager, new SortEngine(settings))
+      // val resolveEngine = new org.apache.ivy.core.resolve.DebugResolveEngine(settings, eventManager, new SortEngine(settings))
+      println("resolve 3")
       val resolveReport = resolveEngine.resolve(module, resolveOptions)
+      println("resolve 4")
       if (resolveReport.hasError) {
         logExceptions(resolveReport)
         val seen = new java.util.LinkedHashSet[Any]
@@ -208,7 +220,9 @@ final class Update(config: UpdateConfiguration) {
         System.err.println(seen.toArray.mkString(System.getProperty("line.separator")))
         error("Error retrieving required libraries")
       }
+      println("resolve 5")
       val modules = moduleRevisionIDs(resolveReport)
+      println("resolve 6")
       extractVersion(modules, scalaLibraryId) -> extractVersion(modules, dep)
     }
   private[this] def extractVersion(modules: Seq[ModuleRevisionId], dep: ModuleId): Option[String] =
@@ -235,18 +249,27 @@ final class Update(config: UpdateConfiguration) {
   }
   /** Retrieves resolved dependencies using the given target to determine the location to retrieve to. */
   private def retrieve(eventManager: EventManager, module: ModuleDescriptor, target: UpdateTarget, autoScalaVersion: Option[String]) {
+    println("retrieve 1")
     val retrieveOptions = new RetrieveOptions
+    println("retrieve 2")
     val retrieveEngine = new ParallelRetrieveEngine(settings, eventManager)
+    println("retrieve 3")
     val (pattern, extraFilter) =
       target match {
         case _: UpdateScala => (scalaRetrievePattern, const(true))
         case u: UpdateApp   => (appRetrievePattern(u.id.toID), notCoreScala _)
       }
+    println("retrieve 4")
     val filter = (a: IArtifact) => retrieveType(a.getType) && a.getExtraAttribute("classifier") == null && extraFilter(a)
+    println("retrieve 5")
     retrieveOptions.setArtifactFilter(new ArtifactFilter(filter))
+    println("retrieve 6")
     val scalaV = strictOr(scalaVersion, autoScalaVersion)
+    println("retrieve 7")
     retrieveOptions.setDestArtifactPattern(baseDirectoryName(scalaOrg, scalaV) + "/" + pattern)
+    println("retrieve 8")
     retrieveEngine.retrieve(module.getModuleRevisionId, retrieveOptions)
+    println("retrieve 9")
   }
   private[this] def notCoreScala(a: IArtifact) = a.getName match {
     case LibraryModuleName | CompilerModuleName => false
